@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {app} from '../src/app.js';
+import {createServer} from 'node:http';
+let server,base;
+test.before(async()=>{server=createServer(app);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base=`http://127.0.0.1:${server.address().port}`});
+test.after(async()=>{await new Promise(resolve=>server.close(resolve))});
+test('health',async()=>{const r=await fetch(base+'/api/health');assert.equal(r.status,200);assert.equal((await r.json()).ok,true)});
+test('pagination and priority filtering',async()=>{const r=await fetch(base+'/api/tickets?priority=high&page=1&limit=10');const d=await r.json();assert.equal(r.status,200);assert.ok(d.total>=10);assert.ok(d.tickets.every(t=>t.priority==='high'))});
+test('invalid creation rejected',async()=>{const r=await fetch(base+'/api/tickets',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:' ',priority:'high'})});assert.equal(r.status,400)});
+test('create and delete ticket',async()=>{const r=await fetch(base+'/api/tickets',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:'Smoke test',priority:'low'})});assert.equal(r.status,201);const ticket=await r.json();const d=await fetch(base+'/api/tickets/'+ticket.id,{method:'DELETE'});assert.equal(d.status,204)});
